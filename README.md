@@ -379,7 +379,6 @@
 <div class="app-container">
     <div class="header">
         <h1>🐉 Ôn từ vựng Việt - Trung</h1>
-        <div class="sub">Đầu voi đuôi chuột · 虎头蛇尾 · Nhấn vào thẻ để lật</div>
     </div>
 
     <div class="stats-bar">
