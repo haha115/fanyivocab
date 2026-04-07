@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Ôn từ vựng Việt - Trung | Lật thẻ thông minh</title>
+    <title>Ôn từ vựng Việt - Trung | Lật thẻ thông minh + Random</title>
     <style>
         * {
             margin: 0;
@@ -121,6 +121,28 @@
 
         .btn-reset:hover {
             background: #cbd5e1;
+        }
+        
+        /* Nút random mới */
+        .btn-random {
+            background: linear-gradient(135deg, #6c5ce7, #a363d9);
+            border: none;
+            border-radius: 32px;
+            padding: 0 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+            box-shadow: 0 2px 6px rgba(108,92,231,0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-random:hover {
+            background: linear-gradient(135deg, #5b4bc4, #8e53c2);
+            transform: scale(0.97);
+            box-shadow: 0 4px 10px rgba(108,92,231,0.4);
         }
 
         /* layout */
@@ -282,11 +304,21 @@
             align-items: baseline;
             margin-bottom: 18px;
             padding: 0 10px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .list-header h2 {
             font-size: 1.4rem;
             font-weight: 600;
+        }
+
+        .badge-learn {
+            background: #f0f4f9;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            padding: 4px 12px;
+            color: #497e9e;
         }
 
         .cards-grid {
@@ -337,14 +369,6 @@
             word-break: break-word;
         }
 
-        .badge-learn {
-            background: #f0f4f9;
-            border-radius: 30px;
-            font-size: 0.7rem;
-            padding: 4px 12px;
-            color: #497e9e;
-        }
-
         @media (max-width: 550px) {
             .vocab-item {
                 flex-direction: column;
@@ -362,6 +386,13 @@
             .flip-card {
                 height: 300px;
             }
+            .stats-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-group {
+                justify-content: center;
+            }
         }
 
         footer {
@@ -372,18 +403,30 @@
             border-top: 1px solid #d0e0ec;
             padding-top: 24px;
         }
+        
+        .random-active-badge {
+            background: #e9d8fd;
+            color: #6c5ce7;
+            font-size: 0.7rem;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 10px;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
 <div class="app-container">
     <div class="header">
-        <h1>翻译</h1>
+        <h1>🐉 Ôn từ vựng Việt - Trung</h1>
+        <div class="sub">Đầu voi đuôi chuột · 虎头蛇尾 · Nhấn vào thẻ để lật · 🎲 Random kiểm tra</div>
     </div>
 
     <div class="stats-bar">
         <div class="info-badge">📚 Tổng số: <span id="totalCount">0</span> từ/cụm</div>
         <div class="filter-group">
             <input type="text" id="searchInput" class="search-box" placeholder="🔍 Tìm theo tiếng Việt hoặc Trung...">
+            <button id="randomBtn" class="btn-random">🎲 Học ngẫu nhiên</button>
             <button id="resetFilterBtn" class="btn-reset">⟳ Xóa lọc</button>
         </div>
     </div>
@@ -414,13 +457,13 @@
         <!-- Danh sách từ vựng -->
         <div class="vocab-list">
             <div class="list-header">
-                <h2>📖 Kho từ vựng</h2>
+                <h2>📖 Kho từ vựng <span id="randomIndicator" class="random-active-badge" style="display: none;">🎲 Chế độ random</span></h2>
                 <div class="badge-learn">📌 Bấm vào từ để chọn & học</div>
             </div>
             <div class="cards-grid" id="vocabGrid"></div>
         </div>
     </div>
-    <footer>📌 Ôn tập cá nhân · Đã sửa dấu ba chấm …… · Lật thẻ mượt mà</footer>
+    <footer>📌 Ôn tập cá nhân · Lật thẻ mượt mà · Random giúp ghi nhớ sâu hơn</footer>
 </div>
 
 <script>
@@ -596,21 +639,25 @@
         ["WTO", "世界贸易组织"]
     ];
 
-    let vocabData = rawVocabulary.map(([viet, chi]) => ({ viet: viet.trim(), chi: chi }));
-    let filteredData = [...vocabData];
+    let masterVocab = rawVocabulary.map(([viet, chi]) => ({ viet: viet.trim(), chi: chi }));
+    let filteredData = [...masterVocab];
     let currentCardIndex = 0;
+    let isRandomMode = false;       // Trạng thái random (chỉ để hiển thị badge)
+    let lastSearchTerm = "";        // Lưu lại từ khóa tìm kiếm để random không làm mất filter
 
     // DOM elements
     const totalSpan = document.getElementById("totalCount");
     const vocabGrid = document.getElementById("vocabGrid");
     const searchInput = document.getElementById("searchInput");
     const resetBtn = document.getElementById("resetFilterBtn");
+    const randomBtn = document.getElementById("randomBtn");
     const cardViet = document.getElementById("cardViet");
     const cardChinese = document.getElementById("cardChinese");
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
     const cardProgress = document.getElementById("cardProgress");
     const flipCardContainer = document.getElementById("flipCard");
+    const randomIndicatorSpan = document.getElementById("randomIndicator");
 
     // Xử lý lật thẻ
     function setFlipState(flipped) {
@@ -621,15 +668,15 @@
         }
     }
 
-    // Reset trạng thái lật về mặt tiếng Việt mỗi khi đổi thẻ
     function resetFlip() {
         setFlipState(false);
     }
 
+    // Cập nhật flashcard theo currentCardIndex
     function updateFlashcardByIndex() {
         if (filteredData.length === 0) {
             cardViet.innerText = "📭 Không có từ phù hợp";
-            cardChinese.innerText = "Hãy xóa bộ lọc";
+            cardChinese.innerText = "Hãy xóa bộ lọc hoặc random lại";
             cardProgress.innerText = "0 / 0";
             resetFlip();
             return;
@@ -637,15 +684,16 @@
         const item = filteredData[currentCardIndex];
         if (item) {
             cardViet.innerText = item.viet;
-            cardChinese.innerHTML = item.chi;  // hỗ trợ html như <br>
+            cardChinese.innerHTML = item.chi;
             cardProgress.innerText = `${currentCardIndex+1} / ${filteredData.length}`;
-            resetFlip(); // mỗi khi chuyển thẻ -> về mặt tiếng Việt
+            resetFlip();
         }
     }
 
+    // Render danh sách từ vựng bên cạnh
     function renderVocabList() {
         if (filteredData.length === 0) {
-            vocabGrid.innerHTML = `<div style="padding: 2rem; text-align:center; background: #fff4e8; border-radius: 32px;">✨ Không tìm thấy từ vựng nào. Thử nhập từ khóa khác nhé!</div>`;
+            vocabGrid.innerHTML = `<div style="padding: 2rem; text-align:center; background: #fff4e8; border-radius: 32px;">✨ Không tìm thấy từ vựng nào. Thử nhập từ khóa khác hoặc random nhé!</div>`;
             return;
         }
         let html = "";
@@ -674,23 +722,75 @@
         });
     }
 
+    // Hàm xáo trộn mảng (Fisher-Yates)
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // Random toàn bộ danh sách đang hiển thị (giữ nguyên filter)
+    function applyRandomOrder() {
+        if (filteredData.length === 0) {
+            // Nếu đang không có từ nào thì không random
+            return;
+        }
+        // Xáo trộn filteredData hiện tại
+        filteredData = shuffleArray([...filteredData]);
+        currentCardIndex = 0;
+        isRandomMode = true;
+        randomIndicatorSpan.style.display = "inline-block";
+        // Cập nhật giao diện
+        renderVocabList();
+        updateFlashcardByIndex();
+    }
+
+    // Lọc từ vựng theo từ khóa, đồng thời reset random mode (vì lọc tạo thứ tự mặc định)
     function filterVocabulary() {
         const searchTerm = searchInput.value.trim().toLowerCase();
+        lastSearchTerm = searchTerm;
+        let newFiltered;
         if (searchTerm === "") {
-            filteredData = [...vocabData];
+            newFiltered = [...masterVocab];
         } else {
-            filteredData = vocabData.filter(item => 
+            newFiltered = masterVocab.filter(item => 
                 item.viet.toLowerCase().includes(searchTerm) || 
                 item.chi.toLowerCase().includes(searchTerm)
             );
         }
+        filteredData = newFiltered;
         currentCardIndex = 0;
+        isRandomMode = false;
+        randomIndicatorSpan.style.display = "none";
         updateStatsAndList();
     }
 
+    // Reset filter: xóa tìm kiếm, thoát random, về master gốc
     function resetFilter() {
         searchInput.value = "";
-        filterVocabulary();
+        lastSearchTerm = "";
+        filteredData = [...masterVocab];
+        currentCardIndex = 0;
+        isRandomMode = false;
+        randomIndicatorSpan.style.display = "none";
+        updateStatsAndList();
+    }
+
+    // Random nhưng vẫn giữ nguyên điều kiện lọc hiện tại (nếu đang lọc thì random trong các từ đã lọc)
+    function randomizeCurrentList() {
+        if (filteredData.length === 0) {
+            // Nếu không có từ nào, không thể random
+            return;
+        }
+        // Xáo trộn filteredData hiện tại
+        filteredData = shuffleArray([...filteredData]);
+        currentCardIndex = 0;
+        isRandomMode = true;
+        randomIndicatorSpan.style.display = "inline-block";
+        renderVocabList();
+        updateFlashcardByIndex();
     }
 
     function nextCard() {
@@ -721,19 +821,21 @@
         });
     }
 
-    // Sự kiện lật thẻ: khi click vào vùng thẻ
+    // Sự kiện lật thẻ
     flipCardContainer.addEventListener("click", (e) => {
-        // Không cho phép lật nếu danh sách rỗng
         if (filteredData.length === 0) return;
-        // Toggle class flipped
         flipCardContainer.classList.toggle('flipped');
     });
 
-    // Khởi tạo
+    // Khởi tạo và gắn sự kiện
     function init() {
-        filterVocabulary();
-        searchInput.addEventListener("input", filterVocabulary);
+        filterVocabulary();  // hiển thị toàn bộ danh sách ban đầu
+        searchInput.addEventListener("input", () => {
+            // Khi gõ tìm kiếm, tự động filter và thoát random
+            filterVocabulary();
+        });
         resetBtn.addEventListener("click", resetFilter);
+        randomBtn.addEventListener("click", randomizeCurrentList);
         prevBtn.addEventListener("click", prevCard);
         nextBtn.addEventListener("click", nextCard);
     }
